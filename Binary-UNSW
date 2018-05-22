@@ -1,0 +1,99 @@
+#Import the necessary libraries#
+from pyspark import SparkConf, SparkContext
+import pyspark
+from pyspark.sql import SparkSession
+from pyspark.sql import SQLContext
+import csv
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
+import time
+print('---------------------------------------------------Start')
+
+#Import the default configurations of the Spark cluster from the main node and create a spark session based on these configs#
+conf = SparkConf()
+sc = SparkContext(conf = conf)
+spark = SQLContext(sc)
+
+#import the input dataset. Dataset is organized as ["label", "features"]#
+InDT=sc.textFile('InD.csv')
+
+#Split the attributes into labels and features to create a Dataframe. Labels are converted into binary using the formula# int(float(x[0])==6), where this formula results in 1 for normal packets and 0 for attacks.
+dff = InDT.map(lambda x: x.split(',')).map(lambda x: (int(float(x[0])==6), Vectors.dense(x[1:])))
+InDF = spark.createDataFrame(dff,schema=["label", "features"])
+smr=[]
+print('-------------------------------------------------------Dataframes Created', InDF.count())
+from pyspark.ml.classification import MultilayerPerceptronClassifier
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+#Define the topology of the neural network three layers#
+layers = [43, 32, 2]
+
+#Define configurations of the neural network used to be trained and tested using cross validation#
+trainer = MultilayerPerceptronClassifier(maxIter=1000, layers=layers, blockSize=1000000, seed=1234)
+cv = CrossValidator(estimator=trainer,estimatorParamMaps=ParamGridBuilder().build(),numFolds=5,evaluator=MulticlassClassificationEvaluator())
+st = time.time()
+model = cv.fit(InDF)
+tet = time.time()-st
+st = time.time()
+result = model.transform(InDF)
+pet = time.time()-st
+
+#Retrieve the actual and predicted labels to create a confusion matrix# 
+predictionAndLabels = result.select("prediction", "label")
+
+#Compute the accuracy of the predictions#
+evaluator = MulticlassClassificationEvaluator(metricName="accuracy")
+acc = evaluator.evaluate(predictionAndLabels)
+
+#Write the actual and predicted labels on files#
+with open('CM1.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(list(result.select("prediction", "label").collect()))
+smr.append([1, tet, pet, acc])
+
+#Write the summary of the operations on a file#
+with open('Summary1.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(smr)
+
+#Define the topology of the neural network four layers#
+layers = [43, 32, 32, 2]
+trainer = MultilayerPerceptronClassifier(maxIter=1000, layers=layers, blockSize=1000000, seed=1234)
+cv = CrossValidator(estimator=trainer,estimatorParamMaps=ParamGridBuilder().build(),numFolds=5,evaluator=MulticlassClassificationEvaluator())
+st = time.time()
+model = cv.fit(InDF)
+tet = time.time()-st
+st = time.time()
+result = model.transform(InDF)
+pet = time.time()-st
+predictionAndLabels = result.select("prediction", "label")
+evaluator = MulticlassClassificationEvaluator(metricName="accuracy")
+acc = evaluator.evaluate(predictionAndLabels)
+with open('CM2.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(list(result.select("prediction", "label").collect()))
+smr.append([2, tet, pet, acc])
+with open('Summary2.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(smr)
+
+#Define the topology of the neural network five layers#
+layers = [43, 32, 32, 32, 2]
+trainer = MultilayerPerceptronClassifier(maxIter=1000, layers=layers, blockSize=1000000, seed=1234)
+cv = CrossValidator(estimator=trainer,estimatorParamMaps=ParamGridBuilder().build(),numFolds=5,evaluator=MulticlassClassificationEvaluator())
+st = time.time()
+model = cv.fit(InDF)
+tet = time.time()-st
+st = time.time()
+result = model.transform(InDF)
+pet = time.time()-st
+predictionAndLabels = result.select("prediction", "label")
+evaluator = MulticlassClassificationEvaluator(metricName="accuracy")
+acc = evaluator.evaluate(predictionAndLabels)
+with open('CM3.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(list(result.select("prediction", "label").collect()))
+smr.append([3, tet, pet, acc])
+with open('Summary.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(smr)
