@@ -1,0 +1,77 @@
+from pyspark import SparkConf, SparkContext
+import pyspark
+from pyspark.sql import SparkSession
+from pyspark.sql import SQLContext
+import csv
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
+import time
+print('---------------------------------------------------Start')
+conf = SparkConf()
+sc = SparkContext(conf = conf)
+spark = SQLContext(sc)
+InDT=sc.textFile('InD.csv')
+dff = InDT.map(lambda x: x.split(',')).map(lambda x: (int(float(x[0])), Vectors.dense(x[1:])))
+InDF = spark.createDataFrame(dff,schema=["label", "features"])
+smr=[]
+print('-------------------------------------------------------Dataframes Created')
+from pyspark.ml.classification import MultilayerPerceptronClassifier
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+layers = [43, 128, 8]
+trainer = MultilayerPerceptronClassifier(maxIter=1000, layers=layers, blockSize=1000000, seed=1234)
+cv = CrossValidator(estimator=trainer,estimatorParamMaps=ParamGridBuilder().build(),numFolds=5,evaluator=MulticlassClassificationEvaluator())
+st = time.time()
+model = cv.fit(InDF)
+tet = time.time()-st
+result = model.transform(InDF)
+st = time.time()
+result = model.transform(InDF)
+pet = time.time()-st
+predictionAndLabels = result.select("prediction", "label")
+evaluator = MulticlassClassificationEvaluator(metricName="accuracy")
+acc = evaluator.evaluate(predictionAndLabels)
+with open('CM1.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(list(result.select("prediction", "label").collect()))
+smr.append([1, tet, pet, acc])
+with open('Summary1.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(smr)
+layers = [43, 128, 128, 8]
+trainer = MultilayerPerceptronClassifier(maxIter=1000, layers=layers, blockSize=1000000, seed=1234)
+cv = CrossValidator(estimator=trainer,estimatorParamMaps=ParamGridBuilder().build(),numFolds=5,evaluator=MulticlassClassificationEvaluator())
+st = time.time()
+model = cv.fit(InDF)
+tet = time.time()-st
+st = time.time()
+result = model.transform(InDF)
+pet = time.time()-st
+predictionAndLabels = result.select("prediction", "label")
+evaluator = MulticlassClassificationEvaluator(metricName="accuracy")
+acc = evaluator.evaluate(predictionAndLabels)
+with open('CM2.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(list(result.select("prediction", "label").collect()))
+smr.append([2, tet, pet, acc])
+with open('Summary2.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(smr)
+layers = [43, 128, 128, 128, 8]
+trainer = MultilayerPerceptronClassifier(maxIter=1000, layers=layers, blockSize=1000000, seed=1234)
+cv = CrossValidator(estimator=trainer,estimatorParamMaps=ParamGridBuilder().build(),numFolds=5,evaluator=MulticlassClassificationEvaluator())
+st = time.time()
+model = cv.fit(InDF)
+tet = time.time()-st
+st = time.time()
+result = model.transform(InDF)
+pet = time.time()-st
+predictionAndLabels = result.select("prediction", "label")
+evaluator = MulticlassClassificationEvaluator(metricName="accuracy")
+acc = evaluator.evaluate(predictionAndLabels)
+with open('CM3.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(list(result.select("prediction", "label").collect()))
+smr.append([3, tet, pet, acc])
+with open('Summary.csv', 'w') as myfile:
+    wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+    wr.writerow(smr)
